@@ -12,8 +12,17 @@ from datetime import datetime
 # -----------------------------
 # Configuration
 # -----------------------------
+
+DISPLAY_CLASS_CORRECTIONS = {
+    "10": "A",
+    "A": "10",
+    "J": "Back",
+    "Q": "J",
+    "Back": "Q",
+}
+
 MODEL_PATH = (
-    "runs/detect/custom_blackjack_cards-3/weights/best.pt"
+    "runs/detect/custom_blackjack_cards-clean/weights/best.pt"
 )
 CONFIDENCE_THRESHOLD = 0.50
 
@@ -471,6 +480,11 @@ def detect_cards(model, model_frame, display_frame):
 
             class_id = int(box.cls[0])
             card_name = model.names[class_id]
+
+            card_name = DISPLAY_CLASS_CORRECTIONS.get(
+                card_name,
+                card_name
+            )
 
             x1, y1, x2, y2 = map(
                 int,
