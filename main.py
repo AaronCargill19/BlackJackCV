@@ -7,6 +7,11 @@ import webbrowser
 import subprocess
 from pathlib import Path
 from datetime import datetime
+from gui import (
+    render_dashboard,
+    update_hand_memory
+)
+from collections import Counter, deque
 
 
 # -----------------------------
@@ -433,11 +438,14 @@ def detect_cards(model, model_frame, display_frame):
     results = model.predict(
         source=model_frame,
         conf=CONFIDENCE_THRESHOLD,
+        iou=0.45,
+        agnostic_nms=False,
+        max_det=20,
         verbose=False
     )
 
-    dealer_cards = []
-    player_cards = []
+    dealer_detections = []
+    player_detections = []
 
     frame_height, frame_width = display_frame.shape[:2]
     divider_y = frame_height // 2
@@ -491,14 +499,19 @@ def detect_cards(model, model_frame, display_frame):
                 box.xyxy[0].tolist()
             )
 
+            center_x = (x1 + x2) // 2
             center_y = (y1 + y2) // 2
 
             if center_y < divider_y:
-                dealer_cards.append(card_name)
-                color = (0, 165, 255)  # Orange
+                dealer_detections.append(
+                    (center_x, card_name)
+                )
+                color = (0, 165, 255)
             else:
-                player_cards.append(card_name)
-                color = (0, 255, 0)  # Green
+                player_detections.append(
+                    (center_x, card_name)
+                )
+                color = (0, 255, 0)
 
             label = (
                 f"{card_name} "
@@ -523,6 +536,24 @@ def detect_cards(model, model_frame, display_frame):
                 color,
                 2
             )
+
+    dealer_detections.sort(
+        key=lambda detection: detection[0]
+    )
+
+    player_detections.sort(
+        key=lambda detection: detection[0]
+    )
+
+    dealer_cards = [
+        card_name
+        for _, card_name in dealer_detections
+    ]
+
+    player_cards = [
+        card_name
+        for _, card_name in player_detections
+    ]
 
     dealer_text = (
         f"Dealer cards: {len(dealer_cards)}"
@@ -555,7 +586,7 @@ def detect_cards(model, model_frame, display_frame):
         2
     )
 
-    return display_frame
+    return display_frame, dealer_cards, player_cards
 
 
 def add_raw_camera_hud(table_frame, raw_frame):
@@ -664,6 +695,9 @@ def main():
     print("Camera started.")
     print("Click CALIBRATE to select the table corners.")
     print("Press Q to quit.")
+
+    dealer_memory = []
+    player_memory = []
 
     while running:
         success, original_frame = camera.read()
@@ -781,14 +815,36 @@ def main():
         # Save clean transformed image for capture
         latest_frame = table_frame.copy()
 
-        # Create grayscale input for the model
         model_frame = grayscale_for_model(table_frame)
 
-        # Detect using grayscale, but draw on the color table frame
-        table_frame = detect_cards(
+        table_frame, dealer_cards, player_cards = detect_cards(
             model,
             model_frame,
             table_frame
+        )
+
+        current_time = time.time()
+
+        dealer_cards = update_hand_memory(
+            dealer_cards,
+            dealer_memory,
+            current_time
+        )
+
+        player_cards = update_hand_memory(
+            player_cards,
+            player_memory,
+            current_time
+        )
+
+        dashboard = render_dashboard(
+            dealer_cards,
+            player_cards
+        )
+
+        cv2.imshow(
+            "Blackjack Dashboard",
+            dashboard
         )
 
         # Add raw camera preview
