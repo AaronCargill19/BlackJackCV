@@ -3,11 +3,11 @@ import cv2
 
 
 SOURCE_DIR = Path(
-    r"C:\Users\abcar\Desktop\BlackJackCV\data\custom\raw_images"
+    r"data\custom\raw_images"
 )
 
 OUTPUT_DIR = Path(
-    r"C:\Users\abcar\Desktop\BlackJackCV\data\custom\grayscale_images"
+    r"data\custom\grayscale_images"
 )
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

@@ -27,7 +27,7 @@ DISPLAY_CLASS_CORRECTIONS = {
 }
 
 MODEL_PATH = (
-    "runs/detect/custom_blackjack_cards-clean/weights/best.pt"
+    "best.pt"
 )
 CONFIDENCE_THRESHOLD = 0.50
 
