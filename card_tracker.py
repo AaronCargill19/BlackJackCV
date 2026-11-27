@@ -16,6 +16,7 @@ Detections are dicts: {"rank": str, "conf": float, "box": (x1, y1, x2, y2),
 """
 import csv
 import math
+from pathlib import Path
 from collections import Counter, deque
 
 import cv2
@@ -179,7 +180,7 @@ class CardTracker:
                 f"{s['late_disagreements']} late label disagreements, "
                 f"{s['tracks_created']} tracks created.")
 
-    def save_log(self, path="session_log.csv"):
+    def save_log(self, path=Path(__file__).resolve().parent / "session_log.csv"):
         fields = ["shoe", "frame", "rank", "suit", "zone", "cards_seen", "running_count"]
         with open(path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fields)

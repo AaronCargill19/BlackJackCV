@@ -25,13 +25,12 @@ except ImportError:
 # Configuration
 # -----------------------------
 
-DISPLAY_CLASS_CORRECTIONS = {
-    "10": "A",
-    "A": "10",
-    "J": "Back",
-    "Q": "J",
-    "Back": "Q",
-}
+# Paths are relative to this file, so the app runs from any working directory
+PROJECT_DIR = Path(__file__).resolve().parent
+
+# Empty: the previous model mislabeled some classes and needed swaps here; the
+# current best.pt (trained from yolo11n.pt on label_studio_combined) outputs correct names
+DISPLAY_CLASS_CORRECTIONS = {}
 
 SUIT_LETTER_TO_NAME = {
     "C": "clubs",
@@ -40,7 +39,7 @@ SUIT_LETTER_TO_NAME = {
     "S": "spades",
 }
 
-MODEL_PATH = "best.pt"
+MODEL_PATH = PROJECT_DIR / "best.pt"
 CONFIDENCE_THRESHOLD = 0.50
 
 SHOE_DECKS = 1
@@ -62,7 +61,7 @@ USE_LIGHTING_CORRECTION = False
 USE_LEGACY_GUI = False
 SHOW_STATS_PANEL = True
 
-CAPTURE_DIR = Path("data/custom/raw_images")
+CAPTURE_DIR = PROJECT_DIR / "data/custom/raw_images"
 CAPTURE_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -196,14 +195,14 @@ def start_training():
         status_message = "Training is already running"
         return
 
-    if not Path("data/custom/data.yaml").exists():
-        status_message = "Missing data/custom/data.yaml"
+    if not (PROJECT_DIR / "data/custom/data.yaml").exists():
+        status_message = "Missing data/custom/data.yaml (run prepare_dataset.py)"
         return
 
     try:
         creation_flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
         subprocess.Popen(
-            [sys.executable, "train_custom.py"],
+            [sys.executable, str(PROJECT_DIR / "train.py")],
             creationflags=creation_flags,
         )
         training_started = True

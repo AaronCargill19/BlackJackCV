@@ -1,38 +1,40 @@
+from datetime import datetime
 from pathlib import Path
-import random
 import shutil
+import sys
 
 
 PROJECT_DIR = Path(__file__).resolve().parent
 
-# Automatically check several possible grayscale folder names
-possible_image_folders = [
-    PROJECT_DIR / "data" / "custom" / "grayscale_images",
-]
+# Run with --color to build a dataset from the original color images
+COLOR = "--color" in sys.argv
 
-IMAGE_SOURCE = None
+IMAGE_SOURCE = PROJECT_DIR / "label_studio_combined" / (
+    "images" if COLOR else "images_grayscale"
+)
 
-for folder in possible_image_folders:
-    if folder.exists():
-        IMAGE_SOURCE = folder
-        break
-
-if IMAGE_SOURCE is None:
+if not IMAGE_SOURCE.exists():
     raise FileNotFoundError(
-        "Could not find the grayscale image folder."
+        f"Could not find the image folder: {IMAGE_SOURCE}"
     )
 
-LABEL_SOURCE = (
-    PROJECT_DIR
-    / "data"
-    / "label_studio_import"
-    / "labels"
-)
+LABEL_SOURCE = PROJECT_DIR / "label_studio_combined" / "labels"
+
+# Split by capture session (see split_by_session). Keys are session start times.
+SESSION_GAP_MINUTES = 20
+VALID_SESSIONS = {
+    "20261125_1313",  # wood table, 1 image (same setup as the next session)
+    "20261125_1651",  # wood table
+}
+TEST_SESSIONS = {
+    "20261114_1316",  # black table
+    "20261123_1425",  # dark grey surface
+}
 
 OUTPUT_ROOT = (
     PROJECT_DIR
     / "data"
-    / "custom"
+    / ("custom_color" if COLOR else "custom")
 )
 
 TRAIN_IMAGES = OUTPUT_ROOT / "train" / "images"
@@ -40,6 +42,9 @@ TRAIN_LABELS = OUTPUT_ROOT / "train" / "labels"
 
 VALID_IMAGES = OUTPUT_ROOT / "valid" / "images"
 VALID_LABELS = OUTPUT_ROOT / "valid" / "labels"
+
+TEST_IMAGES = OUTPUT_ROOT / "test" / "images"
+TEST_LABELS = OUTPUT_ROOT / "test" / "labels"
 
 IMAGE_EXTENSIONS = {
     ".jpg",
@@ -65,13 +70,24 @@ CLASS_NAMES = [
     "Back",
 ]
 
+# Label Studio's export defines the class ids in the label files; they must match.
+_exported = (PROJECT_DIR / "label_studio_combined" / "classes.txt").read_text().split()
+if _exported != CLASS_NAMES:
+    raise ValueError(f"label_studio_combined/classes.txt {_exported} does not match CLASS_NAMES {CLASS_NAMES}")
+
 
 def create_directories():
+    # Clear previous splits so images from an old split can't leak into another set
+    for split in ["train", "valid", "test"]:
+        shutil.rmtree(OUTPUT_ROOT / split, ignore_errors=True)
+
     for directory in [
         TRAIN_IMAGES,
         TRAIN_LABELS,
         VALID_IMAGES,
         VALID_LABELS,
+        TEST_IMAGES,
+        TEST_LABELS,
     ]:
         directory.mkdir(
             parents=True,
@@ -175,7 +191,8 @@ def copy_pair(
 
 def write_data_yaml():
     yaml_text = "train: train/images\n"
-    yaml_text += "val: valid/images\n\n"
+    yaml_text += "val: valid/images\n"
+    yaml_text += "test: test/images\n\n"
     yaml_text += f"nc: {len(CLASS_NAMES)}\n\n"
     yaml_text += "names:\n"
 
@@ -190,6 +207,47 @@ def write_data_yaml():
     )
 
 
+def capture_time(path):
+    return datetime.strptime(get_match_key(path), "%Y%m%d_%H%M%S")
+
+
+def split_by_session(pairs):
+    """
+    Keeps every image from one capture session in the same set, so near-identical
+    frames can't appear in both train and test. A new session starts after a
+    gap of more than SESSION_GAP_MINUTES between captures. Sessions are named by
+    their first capture time; any session not listed below goes to train.
+    """
+    pairs = sorted(pairs, key=lambda pair: capture_time(pair[0]))
+
+    sessions = []
+    previous = None
+    for pair in pairs:
+        current = capture_time(pair[0])
+        if previous is None or (current - previous).total_seconds() > SESSION_GAP_MINUTES * 60:
+            sessions.append((current.strftime("%Y%m%d_%H%M"), []))
+        sessions[-1][1].append(pair)
+        previous = current
+
+    train_pairs, valid_pairs, test_pairs = [], [], []
+    print("Sessions:")
+    for start, session_pairs in sessions:
+        if start in TEST_SESSIONS:
+            target, name = test_pairs, "test"
+        elif start in VALID_SESSIONS:
+            target, name = valid_pairs, "valid"
+        else:
+            target, name = train_pairs, "train"
+        target.extend(session_pairs)
+        print(f"  {start}  {len(session_pairs):4d} images -> {name}")
+
+    missing = (TEST_SESSIONS | VALID_SESSIONS) - {start for start, _ in sessions}
+    if missing:
+        raise RuntimeError(f"Listed sessions not found in the data: {sorted(missing)}")
+
+    return train_pairs, valid_pairs, test_pairs
+
+
 def main():
     create_directories()
 
@@ -200,14 +258,7 @@ def main():
             "No matching image/label pairs were found."
         )
 
-    # Reproducible random split
-    random.seed(42)
-    random.shuffle(pairs)
-
-    split_index = int(len(pairs) * 0.80)
-
-    train_pairs = pairs[:split_index]
-    valid_pairs = pairs[split_index:]
+    train_pairs, valid_pairs, test_pairs = split_by_session(pairs)
 
     for image_path, label_path in train_pairs:
         copy_pair(
@@ -225,6 +276,14 @@ def main():
             VALID_LABELS
         )
 
+    for image_path, label_path in test_pairs:
+        copy_pair(
+            image_path,
+            label_path,
+            TEST_IMAGES,
+            TEST_LABELS
+        )
+
     write_data_yaml()
 
     print()
@@ -232,6 +291,7 @@ def main():
     print(f"Images used: {len(pairs)}")
     print(f"Training images: {len(train_pairs)}")
     print(f"Validation images: {len(valid_pairs)}")
+    print(f"Test images: {len(test_pairs)}")
     print(f"Image source: {IMAGE_SOURCE}")
     print(f"Labels source: {LABEL_SOURCE}")
     print(f"Dataset output: {OUTPUT_ROOT}")

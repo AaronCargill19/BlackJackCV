@@ -16,7 +16,7 @@ import numpy as np
 from blackjack_stats import (RANKS, SUITS, Shoe, dealer_distribution, hand_value,
                              hit_analysis, stand_outcomes)
 
-OUT = Path("stats_figures")
+OUT = Path(__file__).resolve().parent / "stats_figures"
 OUT.mkdir(exist_ok=True)
 rng = random.Random(0)
 

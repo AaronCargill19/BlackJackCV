@@ -1,1 +1,8 @@
-
+__pycache__
+.venv
+label_studio_combined
+data
+runs
+.DS_Store
+session_log.csv
+stats_figures

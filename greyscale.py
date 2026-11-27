@@ -2,13 +2,11 @@ from pathlib import Path
 import cv2
 
 
-SOURCE_DIR = Path(
-    r"data\custom\raw_images"
-)
+PROJECT_DIR = Path(__file__).resolve().parent
 
-OUTPUT_DIR = Path(
-    r"data\custom\grayscale_images"
-)
+SOURCE_DIR = PROJECT_DIR / "label_studio_combined" / "images"
+
+OUTPUT_DIR = PROJECT_DIR / "label_studio_combined" / "images_grayscale"
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 

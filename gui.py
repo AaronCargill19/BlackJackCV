@@ -4,7 +4,6 @@ import time
 from collections import Counter, deque
 
 MAX_CARDS_PER_HAND = 6
-MAX_CARDS_PER_HAND = 6
 MIN_SLOTS_PER_HAND = 2
 CLASS_HISTORY_LENGTH = 7
 CARD_TIMEOUT_SECONDS = 1.5
