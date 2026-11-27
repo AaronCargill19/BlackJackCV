@@ -57,6 +57,9 @@ TABLE_HEIGHT = 700
 STATS_PANEL_WIDTH = 380
 BOTTOM_BAR_HEIGHT = 70
 
+# Largest window width, so the window fits a laptop screen (OpenCV scales the image to it)
+MAX_WINDOW_WIDTH = 1400
+
 USE_LIGHTING_CORRECTION = False
 USE_LEGACY_GUI = False
 SHOW_STATS_PANEL = True
@@ -85,6 +88,7 @@ calibration_points = []
 perspective_matrix = None
 
 current_view_height = DISPLAY_HEIGHT
+window_size = None
 
 
 button_definitions = [
@@ -264,6 +268,20 @@ def draw_bottom_bar(frame):
         current_x = x1 - spacing
 
     return canvas
+
+
+def show_window(window_name, image):
+    """Shows the image in a window with exactly the image's proportions. A mismatch
+    makes OpenCV add grey bars or squash the view. The view changes size (calibration
+    1200 wide, stats panel on/off), so the window is resized whenever the image size changes."""
+    global window_size
+    height, width = image.shape[:2]
+    scale = min(1.0, MAX_WINDOW_WIDTH / width)
+    size = (round(width * scale), round(height * scale))
+    if size != window_size:
+        cv2.resizeWindow(window_name, *size)
+        window_size = size
+    cv2.imshow(window_name, image)
 
 
 # -----------------------------
@@ -448,8 +466,6 @@ def main():
 
     window_name = "Blackjack Card Detection"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-    initial_w = DISPLAY_WIDTH + (STATS_PANEL_WIDTH if SHOW_STATS_PANEL else 0)
-    cv2.resizeWindow(window_name, initial_w, DISPLAY_HEIGHT + BOTTOM_BAR_HEIGHT)
     cv2.setMouseCallback(window_name, mouse_callback)
 
     dealer_memory = []
@@ -478,7 +494,7 @@ def main():
 
             current_view_height = view.shape[0]
             display_frame = draw_bottom_bar(view)
-            cv2.imshow(window_name, display_frame)
+            show_window(window_name, display_frame)
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord("q"):
@@ -543,7 +559,7 @@ def main():
             combined_view = table_frame
 
         display_frame = draw_bottom_bar(combined_view)
-        cv2.imshow(window_name, display_frame)
+        show_window(window_name, display_frame)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
