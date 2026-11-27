@@ -645,7 +645,7 @@ def main():
 
     camera = cv2.VideoCapture(
         0,
-        cv2.CAP_DSHOW
+        cv2.CAP_DSHOW if sys.platform == "win32" else cv2.CAP_ANY
     )
 
     camera.set(

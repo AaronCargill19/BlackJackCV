@@ -438,7 +438,7 @@ def main():
     stats_img = refresh_stats_panel(shoe, tracker, system=args.system)
     last_hand_state = None
 
-    camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    camera = cv2.VideoCapture(0, cv2.CAP_DSHOW if sys.platform == "win32" else cv2.CAP_ANY)
     camera.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
     camera.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
     camera.set(cv2.CAP_PROP_FPS, 30)
